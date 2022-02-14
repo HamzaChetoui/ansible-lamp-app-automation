@@ -1,0 +1,92 @@
+- name: setup web application
+  hosts: target
+  tasks:
+    - name: "Install firewallD"
+      #become: yes
+      #become_method: sudo
+      #become_user: root 
+      yum:
+        name: firewalld
+        state: present
+    
+    - name: "Start firewalld service"
+      service:
+        name: firewalld
+        state: started
+      #become_user: root
+    
+    - name: "Install MariaDb server"
+      yum:
+        name: mariadb-server
+        state: present
+    
+    - name: "Start mariadb service"
+      service:
+        name: mariadb
+        state: started
+    
+    - name: "Configure firewall for Database"
+      command: firewall-cmd {{item}}
+      with_items:
+      - --permanent --zone=public --add-port=3306/tcp
+      - --reload
+    
+    - name: "Make sure pymysql is present"
+      pip:
+        name: pymysql
+        state: present
+    
+    - name: "Create database"
+      mysql_db:
+        name: ecomdb
+        state: present
+    
+    - name: "Create db user"
+      mysql_user:
+        name: ecomuser
+        password: ecompassword
+        host: localhost
+        priv: '*.*:ALL'
+        state: present
+    - name: "Is products table already exists"
+      command: mysql -Ns -e "use ecomdb; select * from products"
+      register: import_result
+    - name: "transfer sql file to tagret server"
+      copy:
+        src: /home/cloud_user/webapp/products.sql
+        dest: /tmp/products.sql
+      when: import_result.stdout.find('ERROR 1146') != -1
+    - name: "Load data to database"
+      mysql_db: 
+        name: ecomdb 
+        state: import
+        target : /tmp/products.sql
+      when: import_result.stdout.find('ERROR 1146') != -1
+    - name: "Install httpd php php-mysqlnd"
+      yum:
+        name: ['httpd','php','php-mysqlnd']
+    - name: "Configure firewall for web"
+      command: firewall-cmd {{item}}
+      with_items: 
+      - --permanent --zone=public --add-port=80/tcp
+      - --reload
+    - name: "httpd config"
+      lineinfile:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: 'DirectoryIndex index.html'
+        line: DirectoryIndex index.php
+    - name: "Start httpd"
+      service:
+        name: httpd
+        state: started
+    - name: "Install git"
+      yum:
+        name: git
+        state: present
+    - name: "is var/www/html empty"
+      command: ls /var/www/html/
+      register: ls_result
+    - name: "Clone git project"
+      command: git clone https://github.com/kodekloudhub/learning-app-ecommerce.git /var/www/html/
+      when: ls_result.stdout.find('cannot access') != -1
+
