@@ -1,1 +1,1 @@
-target ansible_host=18.216.94.238 ansible_connection=ssh
+target ansible_host=01e22184952c.mylabserver.com ansible_connection=ssh
