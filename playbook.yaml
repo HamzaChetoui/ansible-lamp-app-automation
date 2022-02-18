@@ -8,28 +8,32 @@
       yum:
         name: firewalld
         state: present
+      become: yes
     
     - name: "Start firewalld service"
       service:
         name: firewalld
         state: started
-      #become_user: root
+      become: yes
     
     - name: "Install MariaDb server"
       yum:
         name: mariadb-server
         state: present
+      become: yes
     
     - name: "Start mariadb service"
       service:
         name: mariadb
         state: started
+      become: yes
     
     - name: "Configure firewall for Database"
       command: firewall-cmd {{item}}
       with_items:
-      - --permanent --zone=public --add-port=3306/tcp
-      - --reload
+        - --permanent --zone=public --add-port=3306/tcp
+        - --reload
+      become: yes
     
     - name: "Make sure pymysql is present"
       pip:
@@ -40,6 +44,7 @@
       mysql_db:
         name: ecomdb
         state: present
+      become: yes
     
     - name: "Create db user"
       mysql_user:
@@ -48,9 +53,11 @@
         host: localhost
         priv: '*.*:ALL'
         state: present
+      become: yes
     - name: "Is products table already exists"
       command: mysql -Ns -e "use ecomdb; select * from products"
       register: import_result
+      become: yes
     - name: "transfer sql file to tagret server"
       copy:
         src: /home/cloud_user/webapp/products.sql
@@ -65,11 +72,13 @@
     - name: "Install httpd php php-mysqlnd"
       yum:
         name: ['httpd','php','php-mysqlnd']
+      become: yes
     - name: "Configure firewall for web"
       command: firewall-cmd {{item}}
       with_items: 
-      - --permanent --zone=public --add-port=80/tcp
-      - --reload
+        - --permanent --zone=public --add-port=80/tcp
+        - --reload
+      become: yes
     - name: "httpd config"
       lineinfile:
         path: /etc/httpd/conf/httpd.conf
@@ -79,10 +88,12 @@
       service:
         name: httpd
         state: started
+      become: yes
     - name: "Install git"
       yum:
         name: git
         state: present
+      become: yes
     - name: "is var/www/html empty"
       command: ls /var/www/html/
       register: ls_result
